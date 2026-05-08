@@ -1,141 +1,253 @@
-# Watermark Detection - Training Scripts
+# media-watermark-detector
 
-YOLOv8 watermark detection model training and dataset preparation scripts.
+> Medya dataset'lerinde watermark tespit (YOLOv8) — watermark'lı dosyaları
+> rapor eder, opsiyonel olarak `/rejected`'a taşır veya siler. Şu an
+> **görsel** odaklı; video desteği gelecek.
 
-## Setup
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![uv](https://img.shields.io/badge/built%20with-uv-261230)](https://github.com/astral-sh/uv)
 
-Use the shared venv from gradio-app:
+`media-dataset-prep` pipeline'ının **04. adımı**. Standalone kullanılabilir.
+
+---
+
+## 🎯 Ne yapıyor?
+
+YOLOv8 inference ile watermark tespit. Her dosya tek tek model'den geçer:
+
+| Sonuç | Anlam |
+|---|---|
+| `valid: true` | Watermark **yok** (temiz dosya) |
+| `valid: false` + `reason: watermark_detected (N)` | N adet watermark bbox tespit edildi |
+| `valid: false` + `reason: error: ...` | YOLO inference hatası |
+
+Her detection için **bbox + confidence** rapora yazılır (UI'da preview için).
+
+> **Inpainting (watermark silme) yok.** Bu tool sadece **detection** yapar; pipeline scope'u "watermark'lıyı dataset'ten ayır". Inpainting (LaMa, vb.) ayrı use-case için ileride başka tool olabilir.
+
+---
+
+## 🚀 Kurulum
+
 ```bash
-# Install dependencies (if not already installed)
-cd /opt/media-pipeline/gradio-app
-source venv/bin/activate
-pip install ultralytics
+git clone https://github.com/faraday208/media-watermark-detector
+cd media-watermark-detector
+uv sync
 ```
 
-## Scripts
+`media-dataset-prep` workspace altında: `make install`
 
-### 1. Split Dataset
+### Model dosyası
 
-Split your annotated dataset into train/val sets.
+YOLOv8 watermark detection model gerekli:
 
-**Usage:**
+```
+~/Models/watermarks_yolov8/watermarks_s_yolov8_v1.pt   (default)
+```
+
+Farklı path için `--model` flag.
+
+---
+
+## 🛠️ Kullanım — CLI
+
+### Default tarama (sadece raporla)
+
 ```bash
-python3 split_dataset.py --dataset-dir datasets/v2_finetuned
+uv run python run.py -i ./dataset
 ```
 
-**Options:**
-- `--dataset-dir`: Path to dataset directory (must contain `images/` and `labels/` folders) **[Required]**
-- `--train-ratio`: Ratio of training data (default: 0.8 for 80/20 split)
-- `--seed`: Random seed for reproducibility (default: 42)
+### Custom model + confidence
 
-**Examples:**
 ```bash
-# Default 80/20 split
-python3 split_dataset.py --dataset-dir datasets/v2_finetuned
-
-# Custom 90/10 split
-python3 split_dataset.py --dataset-dir datasets/v2_finetuned --train-ratio 0.9
-
-# Custom split with different seed
-python3 split_dataset.py --dataset-dir datasets/v2_finetuned --train-ratio 0.85 --seed 123
+uv run python run.py -i ./dataset \
+    --model /path/to/your_model.pt \
+    --confidence 0.3
 ```
 
-### 2. Train Model
+### Watermark'lıları taşı (undoable)
 
-Fine-tune YOLOv8 model on your dataset.
-
-**Usage:**
 ```bash
-/opt/media-pipeline/gradio-app/venv/bin/python3 train_model.py \
-  --base-model ~/Models/watermarks_yolov8/watermarks_s_yolov8_v1.pt \
-  --dataset-yaml datasets/v2_finetuned/dataset.yaml \
-  --output-dir ~/Models/watermarks_yolov8/training
+uv run python run.py -i ./dataset \
+    --invalid-action move \
+    --invalid-dir ./watermark_rejected
 ```
 
-**Options:**
-- `--base-model`: Path to base/pretrained model (.pt file) **[Required]**
-- `--dataset-yaml`: Path to dataset YAML configuration **[Required]**
-- `--output-dir`: Directory to save training results **[Required]**
-- `--epochs`: Number of training epochs (default: 50)
-- `--imgsz`: Image size for training (default: 640)
-- `--batch`: Batch size (default: 8)
-- `--patience`: Early stopping patience (default: 10)
-- `--device`: Device to use - `0` for first GPU, `cpu` for CPU (default: 0)
-- `--name`: Experiment name (default: watermark_finetune)
+### Sil (irreversible — onay sorar)
 
-**Examples:**
 ```bash
-# Basic training with defaults
-/opt/media-pipeline/gradio-app/venv/bin/python3 train_model.py \
-  --base-model ~/Models/watermarks_yolov8/watermarks_s_yolov8_v1.pt \
-  --dataset-yaml datasets/v2_finetuned/dataset.yaml \
-  --output-dir ~/Models/watermarks_yolov8/training
-
-# Training with custom parameters
-/opt/media-pipeline/gradio-app/venv/bin/python3 train_model.py \
-  --base-model ~/Models/watermarks_yolov8/watermarks_s_yolov8_v1.pt \
-  --dataset-yaml datasets/v2_finetuned/dataset.yaml \
-  --output-dir ~/Models/watermarks_yolov8/training \
-  --epochs 100 \
-  --batch 16 \
-  --name watermark_v3
-
-# Training on CPU
-/opt/media-pipeline/gradio-app/venv/bin/python3 train_model.py \
-  --base-model ~/Models/watermarks_yolov8/watermarks_s_yolov8_v1.pt \
-  --dataset-yaml datasets/v2_finetuned/dataset.yaml \
-  --output-dir ~/Models/watermarks_yolov8/training \
-  --device cpu
+uv run python run.py -i ./dataset --invalid-action delete
+# Onay'sız:
+uv run python run.py -i ./dataset --invalid-action delete --yes
 ```
 
-## Workflow
+### Dry-run (önizleme)
 
-1. **Annotate images** using the Gradio app annotation feature
-2. **Split dataset** into train/val sets:
-   ```bash
-   python3 split_dataset.py --dataset-dir datasets/v2_finetuned
-   ```
-3. **Train model**:
-   ```bash
-   /opt/media-pipeline/gradio-app/venv/bin/python3 train_model.py \
-     --base-model ~/Models/watermarks_yolov8/watermarks_s_yolov8_v1.pt \
-     --dataset-yaml datasets/v2_finetuned/dataset.yaml \
-     --output-dir ~/Models/watermarks_yolov8/training
-   ```
-4. **Use trained model** - Copy the best model:
-   ```bash
-   cp ~/Models/watermarks_yolov8/training/watermark_finetune/weights/best.pt \
-      ~/Models/watermarks_yolov8/watermarks_s_yolov8_v2_finetuned.pt
-   ```
-
-## Directory Structure
-
-```
-04-watermark/
-├── datasets/
-│   └── v2_finetuned/          # Dataset for v2 model
-│       ├── images/             # Original annotated images
-│       ├── labels/             # YOLO format annotations
-│       ├── train/              # Generated by split_dataset.py
-│       │   ├── images/
-│       │   └── labels/
-│       ├── val/                # Generated by split_dataset.py
-│       │   ├── images/
-│       │   └── labels/
-│       └── dataset.yaml        # Dataset configuration
-├── split_dataset.py
-└── train_model.py
+```bash
+uv run python run.py -i ./dataset \
+    --invalid-action move --invalid-dir ./rejected \
+    --dry-run
 ```
 
-## Training Output
+### Geri al
 
-Training results are saved to the output directory:
+```bash
+uv run python run.py --undo ./rejected/watermark_report.json
 ```
-~/Models/watermarks_yolov8/training/
-└── watermark_finetune/         # Or your custom experiment name
-    ├── weights/
-    │   ├── best.pt             # Best model checkpoint
-    │   └── last.pt             # Last model checkpoint
-    ├── results.csv             # Training metrics
-    └── ...                     # Other training artifacts
+
+---
+
+## 📋 Operation modes — özet
+
+| Mod | Komut | Etki | Undo |
+|---|---|---|---|
+| **Sadece rapor** | `--invalid-action none` (default) | Dokunulmaz | – |
+| **Move** | `--invalid-action move --invalid-dir D` | Watermark'lılar D'ye taşınır | ✓ |
+| **Delete** | `--invalid-action delete` | Silinir | ✗ irreversible |
+| **Dry-run** | + `--dry-run` | Rapor üretilir, fiziksel değişiklik yok | – |
+| **Undo** | `--undo REPORT` | move-action geri alınır | – |
+
+---
+
+## 🚩 Tüm CLI flag'leri
+
+| Flag | Tip | Default | Açıklama |
+|---|---|---|---|
+| `-i, --input` | str | – | Input klasörü (zorunlu, `--undo` hariç) |
+| `-o, --output` | str | `<input>/watermark_report.json` | Rapor JSON |
+| `--recursive` / `--no-recursive` | flag | True | Alt klasör tarama |
+| `--model PATH` | str | `~/Models/watermarks_yolov8/...` | YOLO model dosyası |
+| `--confidence` | float | 0.25 | Detection confidence eşiği |
+| `--limit N` | int | 0 | Max dosya |
+| `--invalid-action` | `none\|move\|delete` | `none` | Watermark'lı için aksiyon |
+| `--invalid-dir` | str | – | move hedefi |
+| `--dry-run` | flag | False | Simüle et |
+| `--yes` | flag | False | Onay sorma (delete) |
+| `--undo` | str | – | Watermark raporundan undo |
+
+---
+
+## ⚙️ Config
+
+Tool config dosyası kullanmıyor; tüm parametreler CLI flag'leri. Default model path `~/Models/watermarks_yolov8/watermarks_s_yolov8_v1.pt` — kullanıcının lokal'inde.
+
+In-process kullanımda `find_watermarks(directory, model_path=..., confidence=...)` ile direkt parametrize edilir.
+
+---
+
+## 🔌 In-process (library) kullanım
+
+```python
+from watermark_core import (
+    find_watermarks, apply_action, undo_from_report, write_report,
+)
+
+# YOLO inference
+sr = find_watermarks(
+    "./dataset",
+    model_path="/path/to/model.pt",
+    confidence=0.25,
+    recursive=True,
+)
+print(f"{sr.invalid_count}/{sr.total_scanned} watermark'lı")
+
+# Aksiyon (opsiyonel)
+ar = apply_action(
+    sr.results,
+    source_root="./dataset",
+    action="move",
+    invalid_dir="./rejected",
+)
+
+# Rapor + undo
+write_report("./rejected/watermark_report.json",
+             scan_result=sr, action_result=ar, recursive=True)
+# undo_from_report("./rejected/watermark_report.json")
 ```
+
+`media-dataset-prep` meta UI bu yolla in-process kullanır.
+
+---
+
+## 📄 Rapor formatı
+
+```jsonc
+{
+  "version": "1",
+  "tool": "media-watermark-detector",
+  "source_root": "/abs/path",
+  "recursive": true,
+  "model_path": "/.../watermarks_s_yolov8_v1.pt",
+  "confidence_threshold": 0.25,
+  "summary": {
+    "total_scanned": 100,
+    "valid": 87,            // watermark'sız (temiz)
+    "invalid": 12,          // watermark'lı
+    "errors": 1
+  },
+  "action": "move",
+  "invalid_dir": "/abs/.../rejected",
+  "actions": [
+    {"original": "/abs/.../bad.jpg",
+     "moved_to": "/abs/rejected/bad.jpg",
+     "reason": "watermark_detected (2)",
+     "detection_count": 2}
+  ],
+  "skipped": 0,
+  "results": [
+    {"valid": false, "reason": "watermark_detected (1)",
+     "filename": "x.jpg", "path": "/abs/.../x.jpg",
+     "has_watermark": true, "detection_count": 1,
+     "detections": [{"confidence": 0.85,
+                     "bbox": [10, 20, 100, 80], "class_id": 0}],
+     "error": null}
+  ]
+}
+```
+
+`detections[]` UI'da bbox preview için kullanılır.
+
+---
+
+## 🧪 Test
+
+```bash
+uv sync --group dev
+uv run pytest
+```
+
+33 test: scanner edge cases (empty dir, missing model, missing ultralytics) + actions (move/delete/undo + dry-run + irreversible) + CLI argparse + e2e.
+
+> **Not:** Gerçek YOLO inference test'i yok — model dosyası ve ağırlıklar gerektirir. Apply_action / undo testleri sentetik `ScanResult` fixture'la (mock detection sonuçları) kapsanır.
+
+---
+
+## ⚠️ Limitations
+
+- **YOLOv8 model dosyası gerekli** — repo'ya commit edilmiyor (büyük binary). Default path: `~/Models/watermarks_yolov8/watermarks_s_yolov8_v1.pt`
+- **Ultralytics dependency büyük** (~500 MB ile model) — CI'da headless versiyon: `ultralytics-headless` (yoksa standart)
+- `--invalid-action delete` **irreversible**
+- Detection sadece tespit eder — **inpainting (silme) yapmaz**. Watermark'lı dosyalar move/delete ile dataset'ten çıkarılır
+- Tek thread inference (YOLO batch'leme yok şu an); 1000+ dosyada birkaç dakika
+- Recursive move'da invalid'ler **flat** olarak `invalid_dir`'e iner (alt klasör hiyerarşisi korunmaz; isim çakışması `_1`, `_2`)
+
+---
+
+## 🏷️ Sürüm
+
+**v1.0.0** — clean release. `watermark-detection` → `media-watermark-detector`. Convention §uyumlu refactor:
+- 6 ayrı script (detect, clean, copy, prepare, split, train) → tek `run.py` (sadece detection + cleanup)
+- Inpainting (LaMa) ve training scripts'ler scope dışı silindi
+- argparse + standart flag'ler (-i, -o, --recursive, --invalid-action, --undo, --dry-run, --yes, --confidence, --model)
+- Sidecar JSON şeması §4 uyumlu (tool, source_root, summary, actions, results)
+- Action layer (move/delete) + undo
+- watermark_core/ paket adı (conventions §1)
+- README 8 bölüm, MIT LICENSE, 33 test
+- Kişisel training dataset (`datasets/v2_finetuned/`) repo'dan silindi
+
+---
+
+## 📜 Lisans
+
+[MIT](LICENSE)

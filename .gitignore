@@ -1,23 +1,55 @@
 # Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
+.venv/
 venv/
-ENV/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
 
-# Reports
+# uv
+uv.lock
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Runtime
+*.log
+logs/
 reports/
+flagged/
+*_report.json
 
-# Test data
-test_images/
-input/
-output/
+# Datasets (kişisel/training data — repo'ya commit yok)
+data/
+datasets/
+*.tar
+*.zip
+*.7z
+
+# Modeller (kullanıcının lokal /Models'ında)
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.onnx
+*.bin
+
+# Runtime artifact'lar
+cleaned/
+cleaning_control.json
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+.DS_Store
+
+# OS
+Thumbs.db
+ehthumbs.db

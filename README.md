@@ -236,6 +236,8 @@ uv run pytest
 
 ## 🏷️ Sürüm
 
+**v1.0.1** — pipeline integrasyonu cross-tool tutarlılık: **tree-preserving move**. Recursive scan + tree-mode dataset (00 organize çıktısı) için `--invalid-action move` artık subdir hiyerarşisini koruyor (`relative_to(source_root)` mirror). +1 regression test (34 toplam).
+
 **v1.0.0** — clean release. `watermark-detection` → `media-watermark-detector`. Convention §uyumlu refactor:
 - 6 ayrı script (detect, clean, copy, prepare, split, train) → tek `run.py` (sadece detection + cleanup)
 - Inpainting (LaMa) ve training scripts'ler scope dışı silindi

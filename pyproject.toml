@@ -1,6 +1,6 @@
 [project]
 name = "media-watermark-detector"
-version = "1.0.0"
+version = "1.0.1"
 description = "Media watermark detection (YOLOv8) — composite scan + move/delete + undo"
 requires-python = ">=3.11"
 readme = "README.md"

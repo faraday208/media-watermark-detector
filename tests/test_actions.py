@@ -36,6 +36,44 @@ def test_action_move_relocates_watermarked(mock_scan_result, tmp_path_factory):
     assert "with_wm_2.jpg" in moved_names
 
 
+def test_action_move_preserves_tree_hierarchy(tmp_path: Path):
+    """Tree-mode dataset (00 organize çıktısı) → invalid'ler subdir hiyerarşisini
+    korumalı. Aynı isimli dosyalar farklı subdir'lerde collision'sız taşınmalı."""
+    src = tmp_path / "ds"
+    sub_a = src / "tatil-2024"
+    sub_b = src / "tatil-2025"
+    sub_a.mkdir(parents=True)
+    sub_b.mkdir(parents=True)
+    # Aynı isim, farklı subdir
+    (sub_a / "IMG_001.jpg").write_bytes(b"fake-jpg-a")
+    (sub_b / "IMG_001.jpg").write_bytes(b"fake-jpg-b")
+
+    results = [
+        {
+            "filename": "IMG_001.jpg",
+            "path": str(sub_a / "IMG_001.jpg"),
+            "valid": False, "reason": "watermark_detected (1)",
+            "has_watermark": True, "detection_count": 1,
+            "detections": [], "error": None,
+        },
+        {
+            "filename": "IMG_001.jpg",
+            "path": str(sub_b / "IMG_001.jpg"),
+            "valid": False, "reason": "watermark_detected (2)",
+            "has_watermark": True, "detection_count": 2,
+            "detections": [], "error": None,
+        },
+    ]
+
+    rejected = tmp_path / "rejected"
+    ar = apply_action(results, source_root=src, action="move", invalid_dir=rejected)
+    moved = {Path(e.moved_to).relative_to(rejected) for e in ar.entries}
+    assert Path("tatil-2024/IMG_001.jpg") in moved
+    assert Path("tatil-2025/IMG_001.jpg") in moved
+    # Flat collision suffix'i yok
+    assert all("_1.jpg" not in str(p) for p in moved)
+
+
 def test_action_move_dry_run_no_filesystem_change(mock_scan_result, tmp_path_factory):
     rejected = tmp_path_factory.mktemp("rejected")
     sr = mock_scan_result

@@ -42,6 +42,22 @@ def test_collect_is_sorted(mixed_dataset: Path):
     assert paths == sorted(paths)
 
 
+def test_collect_skips_rejected_and_report_dirs(tmp_path):
+    """Recursive scan _rejected/report klasörlerini atlar."""
+    (tmp_path / "keep.jpg").write_bytes(b"x")
+    (tmp_path / "_rejected" / "04-watermark").mkdir(parents=True)
+    (tmp_path / "_rejected" / "04-watermark" / "elenen.jpg").write_bytes(b"x")
+    (tmp_path / "report").mkdir()
+    (tmp_path / "report" / "rapor.jpg").write_bytes(b"x")
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "sub" / "deep.jpg").write_bytes(b"x")
+    names = [p.name for p in collect_images(tmp_path, recursive=True)]
+    assert "keep.jpg" in names
+    assert "deep.jpg" in names
+    assert "elenen.jpg" not in names
+    assert "rapor.jpg" not in names
+
+
 def test_default_image_exts():
     assert ".jpg" in DEFAULT_IMAGE_EXTS
     assert ".png" in DEFAULT_IMAGE_EXTS

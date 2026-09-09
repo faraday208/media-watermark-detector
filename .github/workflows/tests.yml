@@ -1,0 +1,24 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: uv kur
+        uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+
+      # ultralytics + torch bağımlılığı ağır olduğu için tek Python sürümünde
+      # koşulur; matrix iki kat indirme/derleme maliyeti getiriyor.
+      - name: Testleri koş
+        run: uv run --python 3.12 --with pytest pytest -q

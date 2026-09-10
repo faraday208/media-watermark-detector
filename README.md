@@ -13,6 +13,28 @@
 
 ---
 
+## English
+
+**What it does.** Detects watermarks in an image dataset using YOLOv8 inference. Every file is scored individually; watermarked files are reported and can optionally be moved to `/rejected` or deleted.
+
+**Install**
+
+```bash
+git clone https://github.com/faraday208/media-watermark-detector
+cd media-watermark-detector
+uv sync
+```
+
+**Basic usage**
+
+```bash
+uv run python run.py -i ./dataset
+```
+
+Step **04** of the [`media-dataset-prep`](https://github.com/faraday208/media-dataset-prep) pipeline; also works standalone. The detailed documentation below is in Turkish.
+
+---
+
 ## 🎯 Ne yapıyor?
 
 YOLOv8 inference ile watermark tespit. Her dosya tek tek model'den geçer:
